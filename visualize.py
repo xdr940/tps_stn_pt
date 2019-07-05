@@ -5,10 +5,9 @@ import glob
 import torch
 import random
 import argparse
-import mnist_model
 import data_loader
 import numpy as np
-from mnist_model import STNClsNet
+from models import STNClsNet,ClsNet
 from grid_sample import grid_sample
 from torch.autograd import Variable
 from PIL import Image, ImageDraw, ImageFont
@@ -18,10 +17,11 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--batch-size', type = int, default = 64)
 parser.add_argument('--angle', type = int, default = 60)
 parser.add_argument('--no-cuda', action = 'store_true', default = False)
-parser.add_argument('--model', required = True)
+parser.add_argument('--model', choices=['unbounded_stn','bounded_stn'],default='unbounded_stn')
 parser.add_argument('--span_range', type = int, default = 0.9)
 parser.add_argument('--grid_size', type = int, default = 4)
 args = parser.parse_args()
+device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
 args.span_range_height = args.span_range_width = args.span_range
 args.grid_height = args.grid_width = args.grid_size
@@ -30,10 +30,15 @@ args.image_height = args.image_width = 28
 args.cuda = not args.no_cuda and torch.cuda.is_available()
 random.seed(1024)
 
-assert args.model in ['bounded_stn', 'unbounded_stn']
-model = mnist_model.get_model(args)
-if args.cuda:
-    model.cuda()
+if args.model == 'no_stn':
+    print('create model without ClsNet')
+    model = ClsNet().to(device)
+else:
+    print('create model with STN')
+    model = STNClsNet(args).to(device)
+
+
+
 image_dir = 'image/%s_angle%d_grid%d/' % (args.model, args.angle, args.grid_size)
 if not os.path.isdir(image_dir):
     os.makedirs(image_dir)
@@ -44,7 +49,7 @@ total = 0
 N = 10
 for data_batch, target_batch in test_loader:
     for data, target in zip(data_batch, target_batch):
-        data_list = target2data_list[target]
+        data_list = target2data_list[target.item()]
         if len(data_list) < N:
             data_list.append(data)
             total += 1
@@ -60,10 +65,15 @@ frames_list = [[] for _ in range(batch_size)]
 paths = sorted(glob.glob('checkpoint/%s_angle%d_grid%d/*.pth' % (
     args.model, args.angle, args.grid_size,
 )))[::-1]
+
 font = ImageFont.truetype('Comic Sans MS.ttf', 20)
+
 for pi, path in enumerate(paths): # path index
     print('path %d/%d: %s' % (pi, len(paths), path))
-    model.load_state_dict(torch.load(path))
+
+    state_dict = torch.load(path)
+    model.load_state_dict(state_dict)
+
     source_control_points = model.loc_net(Variable(source_data, volatile = True))
     source_coordinate = model.tps(source_control_points)
     grid = source_coordinate.view(batch_size, 28, 28, 2)

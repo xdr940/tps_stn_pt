@@ -6,7 +6,7 @@ import imageio
 import argparse
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--model', required = True)
+parser.add_argument('--model', default='unbounded_stn')
 parser.add_argument('--angle', type = int, default = 60)
 parser.add_argument('--grid_size', type = int, default = 4)
 args = parser.parse_args()
@@ -22,5 +22,5 @@ for i in range(max_iter):
         args.model, args.angle, args.grid_size, i,
     )))
     images = [imageio.imread(path) for path in paths]
-    for _ in range(20): images.append(images[-1]) # delay at the end
+    for _ in range(20): images.append(images[:-1]) # delay at the end
     imageio.mimsave(gif_dir + 'sample%03d.gif' % i, images)

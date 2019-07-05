@@ -31,7 +31,7 @@ class TPSGridGen(nn.Module):
         target_control_points = target_control_points.float()
 
         # create padded kernel matrix
-        forward_kernel = torch.zeros(N + 3, N + 3)
+        forward_kernel = torch.zeros(N + 3, N + 3)#处理边缘，使其可导?
         target_control_partial_repr = compute_partial_repr(target_control_points, target_control_points)
         forward_kernel[:N, :N].copy_(target_control_partial_repr)
         forward_kernel[:N, -3].fill_(1)
